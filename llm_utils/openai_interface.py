@@ -330,6 +330,7 @@ class OpenAIInterface():
         user_messages,
         response_formats,
         model,
+        web_search,
         max_tokens,
         batch_id,
         file_name
@@ -343,15 +344,13 @@ class OpenAIInterface():
                 entry = {
                     "custom_id": str(ids[i]),
                     "method": "POST",
-                    "url": "/v1/chat/completions",
+                    "url": "/v1/responses",
                     "body": {
                         "model": model,
-                        "messages": [
-                            {"role": "system", "content": system_message},
-                            {"role": "user", "content": text}
-                        ],
-                        "max_tokens": max_tokens,
-                        "response_format": response_formats[i]
+                        "input": text,
+                        "instructions": system_message,
+                        "max_completion_tokens": max_tokens,
+                        "text": {"format": response_formats[i]}
                     }
                 }
                 f.write(json.dumps(entry) + "\n")
@@ -366,6 +365,7 @@ class OpenAIInterface():
         response_formats,
         model,
         name,
+        web_search=False,
         max_tokens=1000,
         verbose=True,
         from_cache=None
@@ -396,6 +396,7 @@ class OpenAIInterface():
                     batch,
                     response_batches[i],
                     model,
+                    web_search,
                     max_tokens,
                     i,
                     file_name
@@ -409,7 +410,7 @@ class OpenAIInterface():
                 input_id = input_file.id
                 batch_meta = self.client.batches.create(
                     input_file_id=input_id,
-                    endpoint="/v1/chat/completions",
+                    endpoint="/v1/responses",
                     completion_window="24h",
                     metadata={
                         "description": f"Batch {i} of for {name}",
@@ -449,7 +450,7 @@ class OpenAIInterface():
                     id = response["custom_id"]
                     
                     try:
-                        message = response["response"]["body"]["choices"][0]["message"]["content"]
+                        message = response["response"]["output"][0]["content"][0]["text"]
                         message = ast.literal_eval(message)
                     except:
                         message = response["error"]
@@ -467,24 +468,29 @@ class OpenAIInterface():
         user_messages,
         response_formats,
         model,
+        web_search=False,
         max_tokens=1000,
         verbose=True
     ):
         
-        messages = [[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_message}
-        ] for user_message in user_messages]
+        if web_search:
+            tools = [{ "type": "web_search_preview" }]
+        else:
+            tools = []
         
         results = []
-        for i, message in tqdm(enumerate(messages), total=len(messages), desc="Chat Completion", disable=not verbose):
-            response = self.client.beta.chat.completions.parse(
-                model=model, 
-                messages=message, 
-                response_format=response_formats[i],
-                max_tokens=max_tokens
+        for i, message in tqdm(enumerate(user_messages), total=len(user_messages), desc="Chat Completion", disable=not verbose):
+            
+            res = self.client.response.create(
+                model=model,
+                input=message,
+                tools=tools,
+                instructions=system_message,
+                text_format=response_formats[i],
+                max_completion_tokens=max_tokens,
             )
-            results.append(ast.literal_eval(response.choices[0].message.content))
+        
+            results.append(ast.literal_eval(res.output[0].content[0].text))
             
         return dict(zip(ids, results))
         
@@ -497,6 +503,7 @@ class OpenAIInterface():
         response_formats,
         model,
         name,
+        web_search=False,
         max_tokens=1000,
         batch=False,
         from_cache=None
@@ -509,6 +516,7 @@ class OpenAIInterface():
                 user_messages,
                 response_formats,
                 model,
+                web_search=web_search,
                 max_tokens=max_tokens
             )
         else:
@@ -519,6 +527,7 @@ class OpenAIInterface():
                 response_formats,
                 model,
                 name,
+                web_search=web_search,
                 max_tokens=max_tokens,
                 from_cache=from_cache
             )
