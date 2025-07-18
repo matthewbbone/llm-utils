@@ -470,6 +470,7 @@ class OpenAIInterface():
         model,
         web_search=False,
         max_tool_calls=3,
+        tool_choice=None,
         max_tokens=1000,
         verbose=True
     ):
@@ -487,6 +488,7 @@ class OpenAIInterface():
                 input=message,
                 tools=tools,
                 max_tool_calls=max_tool_calls,
+                tool_choice=tool_choice,
                 instructions=system_message,
                 text={"format": response_formats[i]},
             )
@@ -506,6 +508,7 @@ class OpenAIInterface():
         name,
         web_search=False,
         max_tool_calls=3,
+        tool_choice=None,
         max_tokens=1000,
         batch=False,
         from_cache=None
@@ -520,6 +523,7 @@ class OpenAIInterface():
                 model,
                 web_search=web_search,
                 max_tool_calls=max_tool_calls,
+                tool_choice=tool_choice,
                 max_tokens=max_tokens
             )
         else:
