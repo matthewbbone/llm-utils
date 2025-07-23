@@ -471,7 +471,7 @@ class OpenAIInterface():
         web_search=False,
         max_tool_calls=3,
         tool_choice=None,
-        max_tokens=1000,
+        max_tokens=10_000,
         verbose=True
     ):
         
@@ -487,6 +487,7 @@ class OpenAIInterface():
                 model=model,
                 input=message,
                 tools=tools,
+                max_output_tokens=max_tokens,
                 max_tool_calls=max_tool_calls,
                 tool_choice=tool_choice,
                 instructions=system_message,
