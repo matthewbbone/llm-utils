@@ -483,19 +483,22 @@ class OpenAIInterface():
         results = []
         for i, message in tqdm(enumerate(user_messages), total=len(user_messages), desc="Chat Completion", disable=not verbose):
             
-            res = self.client.responses.create(
-                model=model,
-                input=message,
-                tools=tools,
-                max_output_tokens=max_tokens,
-                max_tool_calls=max_tool_calls,
-                tool_choice=tool_choice,
-                instructions=system_message,
-                text={"format": response_formats[i]},
-            )
-            
-            results.append(ast.literal_eval(res.output_text))
-            
+            try:
+                res = self.client.responses.create(
+                    model=model,
+                    input=message,
+                    tools=tools,
+                    max_output_tokens=max_tokens,
+                    max_tool_calls=max_tool_calls,
+                    tool_choice=tool_choice,
+                    instructions=system_message,
+                    text={"format": response_formats[i]},
+                )
+                
+                results.append(ast.literal_eval(res.output_text))
+            except Exception as e:
+                results.append({ "error": str(e) })
+
         return dict(zip(ids, results))
         
             
