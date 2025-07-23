@@ -494,8 +494,7 @@ class OpenAIInterface():
                 text={"format": response_formats[i]},
             )
             
-            output_message = [o for o in res.output if o.type == "message"]
-            results.append(ast.literal_eval(output_message[-1].content[0].text))
+            results.append(ast.literal_eval(res.output_text))
             
         return dict(zip(ids, results))
         
