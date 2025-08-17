@@ -460,7 +460,37 @@ class OpenAIInterface():
                     output_ids.append(id)
                     
         return dict(zip(output_ids, output_results))
-                  
+
+    def _chat_completion_call(
+        self,
+        model,
+        message,
+        tools,
+        max_tokens,
+        max_tool_calls,
+        tool_choice,
+        system_message,
+        response_format,
+        verbosity,
+        reasoning
+    ):
+        try:
+            response = self.client.responses.create(
+                model=model,
+                input=message,
+                tools=tools,
+                max_output_tokens=max_tokens,
+                max_tool_calls=max_tool_calls,
+                tool_choice=tool_choice,
+                instructions=system_message,
+                text={"format": response_format, "verbosity": verbosity},
+                reasoning=reasoning
+            )
+            return ast.literal_eval(response.output_text)
+        except Exception as e:
+            print(f"Error in _chat_completion_call: {e}")
+            return {"error": str(e)}
+
     def _chat_completion(
         self,
         system_message,
@@ -482,25 +512,20 @@ class OpenAIInterface():
         else:
             tools = []
         
-        results = []
-        for i, message in tqdm(enumerate(user_messages), total=len(user_messages), desc="Chat Completion", disable=not verbose):
-            
-            try:
-                res = self.client.responses.create(
-                    model=model,
-                    input=message,
-                    tools=tools,
-                    max_output_tokens=max_tokens,
-                    max_tool_calls=max_tool_calls,
-                    tool_choice=tool_choice,
-                    instructions=system_message,
-                    text={"format": response_formats[i], "verbosity": verbosity},
-                    reasoning=reasoning
-                )
-                
-                results.append(ast.literal_eval(res.output_text))
-            except Exception as e:
-                results.append({ "error": str(e) })
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+
+            results = list(executor.map(lambda i: self._chat_completion_call(
+                model,
+                user_messages[i],
+                tools,
+                max_tokens,
+                max_tool_calls,
+                tool_choice,
+                system_message,
+                response_formats[i],
+                verbosity,
+                reasoning
+            ), np.arange(len(user_messages))))
 
         return dict(zip(ids, results))
         
