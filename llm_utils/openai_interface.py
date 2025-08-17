@@ -470,6 +470,8 @@ class OpenAIInterface():
         model,
         web_search=False,
         max_tool_calls=3,
+        reasoning=None,
+        verbosity=None,
         tool_choice=None,
         max_tokens=10_000,
         verbose=True
@@ -492,7 +494,8 @@ class OpenAIInterface():
                     max_tool_calls=max_tool_calls,
                     tool_choice=tool_choice,
                     instructions=system_message,
-                    text={"format": response_formats[i]},
+                    text={"format": response_formats[i], "verbosity": verbosity},
+                    reasoning=reasoning
                 )
                 
                 results.append(ast.literal_eval(res.output_text))
@@ -513,6 +516,8 @@ class OpenAIInterface():
         web_search=False,
         max_tool_calls=3,
         tool_choice=None,
+        reasoning=None,
+        verbosity="medium",
         max_tokens=1000,
         batch=False,
         from_cache=None
@@ -528,6 +533,8 @@ class OpenAIInterface():
                 web_search=web_search,
                 max_tool_calls=max_tool_calls,
                 tool_choice=tool_choice,
+                reasoning=reasoning,
+                verbosity=verbosity,
                 max_tokens=max_tokens
             )
         else:
