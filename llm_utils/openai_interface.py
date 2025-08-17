@@ -514,7 +514,7 @@ class OpenAIInterface():
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
 
-            results = list(executor.map(lambda i: self._chat_completion_call(
+            results = list(tqdm(executor.map(lambda i: self._chat_completion_call(
                 model,
                 user_messages[i],
                 tools,
@@ -525,7 +525,7 @@ class OpenAIInterface():
                 response_formats[i],
                 verbosity,
                 reasoning
-            ), np.arange(len(user_messages))))
+            ), np.arange(len(user_messages))), total=len(user_messages), desc="Chat Completion", disable=not verbose))
 
         return dict(zip(ids, results))
         
