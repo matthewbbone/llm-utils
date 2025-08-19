@@ -474,22 +474,36 @@ class OpenAIInterface():
         verbosity,
         reasoning
     ):
-        try:
-            response = self.client.responses.create(
-                model=model,
-                input=message,
-                tools=tools,
-                max_output_tokens=max_tokens,
-                max_tool_calls=max_tool_calls,
-                tool_choice=tool_choice,
-                instructions=system_message,
-                text={"format": response_format, "verbosity": verbosity},
-                reasoning=reasoning
-            )
-            return ast.literal_eval(response.output_text)
-        except Exception as e:
-            print(f"Error in _chat_completion_call: {e}")
-            return {"error": str(e)}
+        max_retries = 5
+        attempt = 0
+        delay = 1
+        
+        while attempt < max_retries:
+            try:
+                response = self.client.responses.create(
+                    model=model,
+                    input=message,
+                    tools=tools,
+                    max_output_tokens=max_tokens,
+                    max_tool_calls=max_tool_calls,
+                    tool_choice=tool_choice,
+                    instructions=system_message,
+                    text={"format": response_format, "verbosity": verbosity},
+                    reasoning=reasoning
+                )
+                
+                for e in response:
+                    print(e)
+
+                return ast.literal_eval(response.output_text)
+            except Exception as e:
+                attempt += 1
+                if attempt < max_retries:
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    print(f"Error in _chat_completion_call after {max_retries} attempts: {e}")
+                    return {"error": str(e)}
 
     def _chat_completion(
         self,
@@ -512,7 +526,7 @@ class OpenAIInterface():
         else:
             tools = []
         
-        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
             results = list(tqdm(executor.map(lambda i: self._chat_completion_call(
                 model,
