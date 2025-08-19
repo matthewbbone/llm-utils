@@ -491,9 +491,6 @@ class OpenAIInterface():
                     text={"format": response_format, "verbosity": verbosity},
                     reasoning=reasoning
                 )
-                
-                for e in response:
-                    print(e)
 
                 return ast.literal_eval(response.output_text)
             except Exception as e:
