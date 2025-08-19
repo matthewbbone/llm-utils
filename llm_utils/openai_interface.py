@@ -515,6 +515,7 @@ class OpenAIInterface():
         verbosity=None,
         tool_choice=None,
         max_tokens=10_000,
+        n_workers=1,
         verbose=True
     ):
         
@@ -523,7 +524,7 @@ class OpenAIInterface():
         else:
             tools = []
         
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
 
             results = list(tqdm(executor.map(lambda i: self._chat_completion_call(
                 model,
@@ -555,6 +556,7 @@ class OpenAIInterface():
         reasoning=None,
         verbosity="medium",
         max_tokens=1000,
+        n_workers=1,
         batch=False,
         from_cache=None
     ):
@@ -571,7 +573,8 @@ class OpenAIInterface():
                 tool_choice=tool_choice,
                 reasoning=reasoning,
                 verbosity=verbosity,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                n_workers=n_workers
             )
         else:
             return self._batch_chat_completion_call(
