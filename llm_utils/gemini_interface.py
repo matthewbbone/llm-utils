@@ -6,6 +6,7 @@ import time
 import ast
 from google.oauth2 import service_account
 from google.genai import Client
+from pydantic import BaseModel
 
 class GeminiInterface(LLMInterface):
 
@@ -113,7 +114,12 @@ class GeminiInterface(LLMInterface):
         
         # Generation config
         mime_type = "text/plain"
-        if isinstance(response_format, dict) and response_format.get("type") == "json_object":
+        response_schema = None
+
+        if isinstance(response_format, type) and issubclass(response_format, BaseModel):
+            mime_type = "application/json"
+            response_schema = response_format
+        elif isinstance(response_format, dict) and response_format.get("type") == "json_object":
             mime_type = "application/json"
         elif response_format == "json_object":
             mime_type = "application/json"
@@ -121,6 +127,7 @@ class GeminiInterface(LLMInterface):
         config = genai.types.GenerateContentConfig(
             max_output_tokens=max_tokens,
             response_mime_type=mime_type,
+            response_schema=response_schema,
             tools=gemini_tools if gemini_tools else None,
             system_instruction=system_message
         )
@@ -133,6 +140,9 @@ class GeminiInterface(LLMInterface):
                     config=config
                 )
                 
+                if response_schema:
+                    return response.parsed
+
                 text = response.text.strip()
                 # Remove markdown code blocks if present
                 if text.startswith("```"):

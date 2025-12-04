@@ -4,6 +4,7 @@ import os
 import openai
 import time
 import ast
+from pydantic import BaseModel
 
 class OpenAIInterface(LLMInterface):
 
@@ -83,18 +84,32 @@ class OpenAIInterface(LLMInterface):
         
         while attempt < max_retries:
             try:
-                response = self.client.responses.create(
-                    model=model,
-                    input=message,
-                    tools=tools,
-                    max_output_tokens=max_tokens,
-                    max_tool_calls=max_tool_calls,
-                    tool_choice=tool_choice,
-                    instructions=system_message,
-                    text={"format": response_format, "verbosity": verbosity},
-                    reasoning=reasoning
-                )
+                kwargs = {
+                    "model": model,
+                    "input": message,
+                    "instructions": system_message,
+                    "tools": tools if tools else None,
+                    "tool_choice": tool_choice,
+                    "max_output_tokens": max_tokens,
+                }
 
+                if isinstance(response_format, type) and issubclass(response_format, BaseModel):
+                    kwargs["response_format"] = {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": response_format.__name__,
+                            "schema": response_format.model_json_schema(),
+                            "strict": True
+                        }
+                    }
+                elif response_format == "json_object":
+                    kwargs["response_format"] = {"type": "json_object"}
+                
+                response = self.client.responses.create(**kwargs)
+
+                if isinstance(response_format, type) and issubclass(response_format, BaseModel):
+                    return response_format.model_validate_json(response.output_text)
+                
                 return ast.literal_eval(response.output_text)
             except Exception as e:
                 attempt += 1
