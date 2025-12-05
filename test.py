@@ -1,12 +1,10 @@
 from dotenv import load_dotenv
 import os
-from llm_utils.openai_interface import OpenAIInterface
-from llm_utils.gemini_interface import GeminiInterface
+from llm_utils.wrapper import LLMWrapper
 import numpy as np
 load_dotenv()
 
-oai = OpenAIInterface()
-gem = GeminiInterface()
+llm = LLMWrapper()
 
 template = {
         "name": "test",
@@ -18,25 +16,20 @@ template = {
                 "COMPANY_NAME": {
                     "type": "string",
                     "description": "The name of the company.",
-                    "max_completion_tokens": 25
                 },
                 "BUSINESS_ACTIVITIES": {
                     "type": "string",
                     "description": "A description of the company's business activities.",
-                    "max_completion_tokens": 100
                 },
                 "PRICE": {
                     "type": "number",
                     "description": "The current stock price of the company in USD.",
-                    "maximum": 100000,
-                    "minimum": 0
                 },
                 "CITATIONS": {
                     "type": "array",
                     "description": "A list of urls for the information provided.",
                     "items": {
                         "type": "string",
-                        "max_completion_tokens": 100
                     }
                 }
             },
@@ -47,14 +40,13 @@ template = {
 
 print("Testing OpenAI...")
 try:
-    oai_res = oai.ask_gpt(
+    oai_res = llm.ask(
         "You are a financial analyst with expertise of ticker symbols and company information. Search the web for information about the company with ticker symbol TSLA.",
         [0],
         ["What company does this refer to? Describe it's business activities and price: TSLA"],
         [template],
-        "gpt-5-mini",
+        "gpt-4o-mini",
         web_search=True,
-        reasoning={"effort": "low"},
         verbosity="medium"
     )
 
@@ -73,13 +65,12 @@ except Exception as e:
 
 print("\nTesting Gemini...")
 try:
-    gemini_res = gem.ask_gemini(
+    gemini_res = llm.ask(
         "You are a financial analyst with expertise of ticker symbols and company information. Search the web for information about the company with ticker symbol TSLA.",
         [0],
         ["What company does this refer to? Describe it's business activities and price: TSLA"],
         [template],
         "gemini-2.5-flash",
-        name="test_gemini",
         web_search=True,
         reasoning={"effort": "low"},
         verbosity="medium"
@@ -99,6 +90,32 @@ except Exception as e:
     print(f"❌ Gemini Test Error: {e}")
 
 
+print("\nTesting Claude...")
+try:
+    claude_res = llm.ask(
+        "You are a financial analyst with expertise of ticker symbols and company information. Search the web for information about the company with ticker symbol TSLA.",
+        [0],
+        ["What company does this refer to? Describe it's business activities and price: TSLA"],
+        [template],
+        "claude-sonnet-4-5",
+        web_search=True,
+        verbosity="medium"
+    )
+
+    if 0 in claude_res and isinstance(claude_res[0], dict):
+        price = claude_res[0].get("PRICE")
+        print("Price:", price)
+        if price and 400 < price < 500:
+            print("✅ Claude Price Check Passed")
+        else:
+            print(f"❌ Claude Price Check Failed: {price}")
+        print("Rest of answer:", {k:v for k,v in claude_res[0].items() if k != "PRICE"})
+    else:
+        print("❌ Claude Result format incorrect or error:", claude_res)
+except Exception as e:
+    print(f"❌ Claude Test Error: {e}")
+
+
 def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
@@ -109,13 +126,14 @@ try:
     
     # OpenAI Embeddings
     print("Getting OpenAI Embeddings...")
-    _, openai_embeddings = oai.save_embeddings(
+    _, openai_embeddings = llm.embed(
         ids=ids,
         texts=texts,
         size=1536,
         db=None,
         name="test_openai_emb",
-        verbose=False
+        verbose=False,
+        model="text-embedding-3-large"
     )
     
     cat_emb = np.array(openai_embeddings[0])
@@ -136,13 +154,14 @@ try:
 
     # Gemini Embeddings
     print("Getting Gemini Embeddings...")
-    _, gemini_embeddings = gem.save_embeddings(
+    _, gemini_embeddings = llm.embed(
         ids=ids,
         texts=texts,
         size=768, 
         db=None,
         name="test_gemini_emb",
-        verbose=False
+        verbose=False,
+        model="text-embedding-004"
     )
     
     cat_emb = np.array(gemini_embeddings[0])

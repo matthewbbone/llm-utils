@@ -89,7 +89,7 @@ class LLMInterface(ABC):
         self,
         model,
         message,
-        tools,
+        web_search,
         max_tokens,
         max_tool_calls,
         tool_choice,
@@ -117,17 +117,12 @@ class LLMInterface(ABC):
         verbose=True
     ):
         
-        if web_search:
-            tools = [{ "type": "web_search_preview" }]
-        else:
-            tools = []
-        
         with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
 
             results = list(tqdm(executor.map(lambda i: self._chat_completion_call(
                 model,
                 user_messages[i],
-                tools,
+                web_search,
                 max_tokens,
                 max_tool_calls,
                 tool_choice,
@@ -146,15 +141,13 @@ class LLMInterface(ABC):
         user_messages,
         response_formats,
         model,
-        name,
         web_search=False,
         max_tool_calls=3,
         tool_choice=None,
         reasoning=None,
         verbosity="medium",
-        max_tokens=1000,
-        n_workers=1,
-        from_cache=None
+        max_tokens=None,
+        n_workers=1
     ):
     
         return self._chat_completion(

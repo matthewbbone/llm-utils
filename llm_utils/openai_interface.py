@@ -56,10 +56,13 @@ class OpenAIInterface(LLMInterface):
         db,
         name,
         batch=False,
-        verbose=True
+        verbose=True,
+        model=None
     ):
         
-        if size > 1536:
+        if model:
+            embedding_model = model
+        elif size > 1536:
             embedding_model = "text-embedding-3-large"
         else:
             embedding_model = "text-embedding-3-large"
@@ -79,7 +82,7 @@ class OpenAIInterface(LLMInterface):
         self,
         model,
         message,
-        tools,
+        web_search,
         max_tokens,
         max_tool_calls,
         tool_choice,
@@ -91,6 +94,11 @@ class OpenAIInterface(LLMInterface):
         max_retries = 5
         attempt = 0
         delay = 1
+        
+        if web_search:
+            tools = [{ "type": "web_search" }]
+        else:
+            tools = []
         
         while attempt < max_retries:
             try:
@@ -106,7 +114,10 @@ class OpenAIInterface(LLMInterface):
                     reasoning=reasoning
                 )
 
-                return ast.literal_eval(response.output_text)
+                if (isinstance(response_format, str) and "json" in response_format) or (isinstance(response_format, dict) and response_format.get("type") == "json_schema"):
+                    return json.loads(response.output_text)
+                else:
+                    return response.output_text
             except Exception as e:
                 attempt += 1
                 if attempt < max_retries:
@@ -128,7 +139,7 @@ class OpenAIInterface(LLMInterface):
         tool_choice=None,
         reasoning=None,
         verbosity="medium",
-        max_tokens=1000,
+        max_tokens=None,
         n_workers=1
     ):
     

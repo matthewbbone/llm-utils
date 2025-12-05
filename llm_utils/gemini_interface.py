@@ -67,10 +67,14 @@ class GeminiInterface(LLMInterface):
         size, 
         db,
         name,
-        verbose=True
+        verbose=True,
+        model=None
     ):
         
-        embedding_model = "text-embedding-004"
+        if model:
+            embedding_model = model
+        else:
+            embedding_model = "text-embedding-004"
 
         output_texts, output_embeddings = self._concurrent_embedding_call(
             ids,
@@ -86,7 +90,7 @@ class GeminiInterface(LLMInterface):
         self,
         model,
         message,
-        tools,
+        web_search,
         max_tokens,
         max_tool_calls,
         tool_choice,
@@ -101,15 +105,7 @@ class GeminiInterface(LLMInterface):
         
         # Map tools
         gemini_tools = []
-        
-        # Check for web search in tools
-        web_search = False
-        if tools:
-            for tool in tools:
-                if isinstance(tool, dict) and tool.get("type") == "web_search_preview":
-                    web_search = True
-                    break
-        
+
         if web_search:
             gemini_tools.append(genai.types.Tool(google_search=genai.types.GoogleSearch()))
         
