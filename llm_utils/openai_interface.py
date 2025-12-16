@@ -1,6 +1,14 @@
 from dotenv import load_dotenv
 import os
 import openai
+from openai import (
+    RateLimitError,
+    AuthenticationError,
+    BadRequestError,
+    APIError,
+    APIConnectionError,
+    APITimeoutError
+)
 import time
 from datetime import datetime as dt
 import numpy as np
@@ -16,8 +24,11 @@ class OpenAIInterface(LLMInterface):
     def __init__(self) -> None:
         super().__init__()
         load_dotenv()
-        
-        self.client = openai.Client(api_key=os.getenv("OPENAI_KEY"))
+
+        api_key = os.getenv("OPENAI_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_KEY environment variable not set")
+        self.client = openai.Client(api_key=api_key)
         
     def _get_default_batch_size(self, num_texts):
         # openai limits to 2048 per request
@@ -27,25 +38,57 @@ class OpenAIInterface(LLMInterface):
         return batch_size
         
     def _embedding_call(self, texts, embedding_model, size, max_retries=5):
-        
         attempt = 0
         delay = 1
+        last_error = None
+
         while attempt < max_retries:
-            
             try:
                 response = self.client.embeddings.create(
-                    input=texts, 
+                    input=texts,
                     model=embedding_model,
                     dimensions=size
                 )
-                embeddings = [e.embedding for e in response.data]  
-                return embeddings
-            except Exception as e:
+                return [e.embedding for e in response.data]
+
+            except AuthenticationError as e:
+                print(f"OpenAI authentication failed: {e}")
+                return None
+
+            except BadRequestError as e:
+                print(f"OpenAI bad request (check model/input): {e}")
+                return None
+
+            except RateLimitError as e:
+                last_error = e
                 attempt += 1
+                wait_time = delay * 2  # Longer wait for rate limits
+                print(f"OpenAI rate limit hit, waiting {wait_time}s (attempt {attempt}/{max_retries})")
+                time.sleep(wait_time)
+                delay *= 2
+
+            except (APIConnectionError, APITimeoutError) as e:
+                last_error = e
+                attempt += 1
+                print(f"OpenAI connection error, retrying (attempt {attempt}/{max_retries}): {e}")
                 time.sleep(delay)
-                delay *= 2  # Exponential backoff
-           
-        print(f"Problematic text: {texts}")
+                delay *= 2
+
+            except APIError as e:
+                last_error = e
+                attempt += 1
+                print(f"OpenAI API error, retrying (attempt {attempt}/{max_retries}): {e}")
+                time.sleep(delay)
+                delay *= 2
+
+            except Exception as e:
+                last_error = e
+                attempt += 1
+                print(f"Unexpected error in embedding call (attempt {attempt}/{max_retries}): {e}")
+                time.sleep(delay)
+                delay *= 2
+
+        print(f"OpenAI embedding failed after {max_retries} attempts. Last error: {last_error}")
         return None 
     
     def save_embeddings(
@@ -55,22 +98,14 @@ class OpenAIInterface(LLMInterface):
         size, 
         db,
         name,
-        batch=False,
         verbose=True,
         model=None
     ):
-        
-        if model:
-            embedding_model = model
-        elif size > 1536:
-            embedding_model = "text-embedding-3-large"
-        else:
-            embedding_model = "text-embedding-3-large"
     
         output_texts, output_embeddings = self._concurrent_embedding_call(
             ids,
             texts, 
-            embedding_model, 
+            model, 
             size,
             db,
             verbose=verbose
@@ -94,12 +129,13 @@ class OpenAIInterface(LLMInterface):
         max_retries = 5
         attempt = 0
         delay = 1
-        
+        last_error = None
+
         if web_search:
-            tools = [{ "type": "web_search" }]
+            tools = [{"type": "web_search"}]
         else:
             tools = []
-        
+
         while attempt < max_retries:
             try:
                 response = self.client.responses.create(
@@ -118,14 +154,50 @@ class OpenAIInterface(LLMInterface):
                     return json.loads(response.output_text)
                 else:
                     return response.output_text
-            except Exception as e:
+
+            except AuthenticationError as e:
+                return {"error": f"Authentication failed: {e}", "error_type": "auth"}
+
+            except BadRequestError as e:
+                return {"error": f"Bad request (check model/parameters): {e}", "error_type": "bad_request"}
+
+            except RateLimitError as e:
+                last_error = e
+                attempt += 1
+                wait_time = delay * 2
+                if attempt < max_retries:
+                    print(f"OpenAI rate limit hit, waiting {wait_time}s (attempt {attempt}/{max_retries})")
+                    time.sleep(wait_time)
+                    delay *= 2
+
+            except (APIConnectionError, APITimeoutError) as e:
+                last_error = e
                 attempt += 1
                 if attempt < max_retries:
+                    print(f"OpenAI connection error, retrying (attempt {attempt}/{max_retries})")
                     time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-                else:
-                    print(f"Error in _chat_completion_call after {max_retries} attempts: {e}")
-                    return {"error": str(e)}
+                    delay *= 2
+
+            except APIError as e:
+                last_error = e
+                attempt += 1
+                if attempt < max_retries:
+                    print(f"OpenAI API error, retrying (attempt {attempt}/{max_retries}): {e}")
+                    time.sleep(delay)
+                    delay *= 2
+
+            except json.JSONDecodeError as e:
+                return {"error": f"Failed to parse JSON response: {e}", "error_type": "parse_error"}
+
+            except Exception as e:
+                last_error = e
+                attempt += 1
+                if attempt < max_retries:
+                    print(f"Unexpected error, retrying (attempt {attempt}/{max_retries}): {e}")
+                    time.sleep(delay)
+                    delay *= 2
+
+        return {"error": f"Failed after {max_retries} attempts: {last_error}", "error_type": "max_retries"}
 
     def ask_gpt(
         self,

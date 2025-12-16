@@ -1,6 +1,14 @@
 import os
 from dotenv import load_dotenv
 import anthropic
+from anthropic import (
+    RateLimitError,
+    AuthenticationError,
+    BadRequestError,
+    APIError,
+    APIConnectionError,
+    APITimeoutError
+)
 import time
 import json
 from llm_utils.llm_interface import LLMInterface
@@ -10,7 +18,11 @@ class ClaudeInterface(LLMInterface):
     def __init__(self) -> None:
         super().__init__()
         load_dotenv()
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+        self.client = anthropic.Anthropic(api_key=api_key)
 
     def _embedding_call(self, texts, embedding_model, size, max_retries=5):
         # Anthropic does not support embeddings natively
@@ -93,6 +105,8 @@ class ClaudeInterface(LLMInterface):
                     # But we should update the system message to ensure it uses the tool eventually
                     system_message += f"\n\nAfter gathering necessary information, you MUST call the '{name}' tool to provide your final answer."
 
+        last_error = None
+
         while attempt < max_retries:
             try:
                 kwargs = {
@@ -102,14 +116,14 @@ class ClaudeInterface(LLMInterface):
                     "system": system_message,
                     "timeout": 600
                 }
-                
+
                 if claude_tools:
                     kwargs["tools"] = claude_tools
                     if tool_choice_param:
                         kwargs["tool_choice"] = tool_choice_param
-                
+
                 response = self.client.messages.create(**kwargs)
-                
+
                 # Parse response
                 # If structured output was requested (response_format is set), look for that tool use
                 if response_format:
@@ -123,24 +137,56 @@ class ClaudeInterface(LLMInterface):
                     for content in response.content:
                         if content.type == "tool_use" and content.name == target_tool_name:
                             return content.input
-                
+
                 # If no structured output forced, or if we just want text (e.g. web search results integrated)
                 # Claude returns text blocks with citations for web search
                 text_content = []
                 for content in response.content:
                     if content.type == "text":
                         text_content.append(content.text)
-                
+
                 if text_content:
                     return "".join(text_content)
-                
+
                 return None
 
-            except Exception as e:
+            except AuthenticationError as e:
+                return {"error": f"Authentication failed: {e}", "error_type": "auth"}
+
+            except BadRequestError as e:
+                return {"error": f"Bad request (check model/parameters): {e}", "error_type": "bad_request"}
+
+            except RateLimitError as e:
+                last_error = e
+                attempt += 1
+                wait_time = delay * 2
+                if attempt < max_retries:
+                    print(f"Claude rate limit hit, waiting {wait_time}s (attempt {attempt}/{max_retries})")
+                    time.sleep(wait_time)
+                    delay *= 2
+
+            except (APIConnectionError, APITimeoutError) as e:
+                last_error = e
                 attempt += 1
                 if attempt < max_retries:
+                    print(f"Claude connection error, retrying (attempt {attempt}/{max_retries})")
                     time.sleep(delay)
                     delay *= 2
-                else:
-                    print(f"Error in _chat_completion_call after {max_retries} attempts: {e}")
-                    return {"error": str(e)}
+
+            except APIError as e:
+                last_error = e
+                attempt += 1
+                if attempt < max_retries:
+                    print(f"Claude API error, retrying (attempt {attempt}/{max_retries}): {e}")
+                    time.sleep(delay)
+                    delay *= 2
+
+            except Exception as e:
+                last_error = e
+                attempt += 1
+                if attempt < max_retries:
+                    print(f"Unexpected error, retrying (attempt {attempt}/{max_retries}): {e}")
+                    time.sleep(delay)
+                    delay *= 2
+
+        return {"error": f"Failed after {max_retries} attempts: {last_error}", "error_type": "max_retries"}
