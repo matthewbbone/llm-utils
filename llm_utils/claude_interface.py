@@ -144,23 +144,11 @@ class ClaudeInterface(LLMInterface):
                         kwargs["tool_choice"] = tool_choice_param
 
                 # Add reasoning/thinking based on model type
-                if reasoning and reasoning in effort_mapping:
-                    if is_opus_45:
-                        # Opus 4.5: use effort parameter (beta API)
-                        kwargs["betas"] = ["effort-2025-11-24"]
-                        kwargs["output_config"] = {"effort": effort_mapping[reasoning]}
-                        response = self.client.beta.messages.create(**kwargs)
-                    else:
-                        # Other models: use extended thinking with budget_tokens
-                        budget = thinking_budget_mapping[reasoning]
-                        kwargs["thinking"] = {
-                            "type": "enabled",
-                            "budget_tokens": budget
-                        }
-                        # Ensure max_tokens can accommodate thinking + response
-                        if kwargs["max_tokens"] < budget + 1024:
-                            kwargs["max_tokens"] = budget + 4096
-                        response = self.client.messages.create(**kwargs)
+                if reasoning and reasoning in effort_mapping and is_opus_45:
+                    # Opus 4.5: use effort parameter (beta API)
+                    kwargs["betas"] = ["effort-2025-11-24"]
+                    kwargs["output_config"] = {"effort": effort_mapping[reasoning]}
+                    response = self.client.beta.messages.create(**kwargs)
                 else:
                     response = self.client.messages.create(**kwargs)
 
