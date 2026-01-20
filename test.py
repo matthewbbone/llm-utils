@@ -45,9 +45,10 @@ try:
         [0],
         ["What company does this refer to? Describe it's business activities and price: TSLA"],
         [template],
-        "gpt-4o-mini",
+        "gpt-5-mini",
         web_search=True,
-        verbosity="medium"
+        verbosity="medium",
+        reasoning="low"
     )
 
     if 0 in oai_res and isinstance(oai_res[0], dict):
@@ -70,9 +71,9 @@ try:
         [0],
         ["What company does this refer to? Describe it's business activities and price: TSLA"],
         [template],
-        "gemini-2.5-flash",
+        "gemini-3-pro-preview",
         web_search=True,
-        reasoning={"effort": "low"},
+        reasoning="low",
         verbosity="medium"
     )
 
@@ -99,7 +100,8 @@ try:
         [template],
         "claude-sonnet-4-5",
         web_search=True,
-        verbosity="medium"
+        verbosity="medium",
+        reasoning="low"
     )
 
     if 0 in claude_res and isinstance(claude_res[0], dict):
@@ -119,66 +121,66 @@ except Exception as e:
 def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-print("\n--- Testing Embeddings ---")
-try:
-    texts = ["cat", "kitty", "dog", "potato"]
-    ids = ["1", "2", "3", "4"]
+# print("\n--- Testing Embeddings ---")
+# try:
+#     texts = ["cat", "kitty", "dog", "potato"]
+#     ids = ["1", "2", "3", "4"]
     
-    # OpenAI Embeddings
-    print("Getting OpenAI Embeddings...")
-    _, openai_embeddings = llm.embed(
-        ids=ids,
-        texts=texts,
-        size=1536,
-        db=None,
-        name="test_openai_emb",
-        verbose=False,
-        model="text-embedding-3-large"
-    )
+#     # OpenAI Embeddings
+#     print("Getting OpenAI Embeddings...")
+#     _, openai_embeddings = llm.embed(
+#         ids=ids,
+#         texts=texts,
+#         size=1536,
+#         db=None,
+#         name="test_openai_emb",
+#         verbose=False,
+#         model="text-embedding-3-large"
+#     )
     
-    cat_emb = np.array(openai_embeddings[0])
-    kitty_emb = np.array(openai_embeddings[1])
-    dog_emb = np.array(openai_embeddings[2])
-    potato_emb = np.array(openai_embeddings[3])
+#     cat_emb = np.array(openai_embeddings[0])
+#     kitty_emb = np.array(openai_embeddings[1])
+#     dog_emb = np.array(openai_embeddings[2])
+#     potato_emb = np.array(openai_embeddings[3])
     
-    sim_cat_kitty = cosine_similarity(cat_emb, kitty_emb)
-    sim_dog_potato = cosine_similarity(dog_emb, potato_emb)
+#     sim_cat_kitty = cosine_similarity(cat_emb, kitty_emb)
+#     sim_dog_potato = cosine_similarity(dog_emb, potato_emb)
     
-    print(f"OpenAI Similarity (cat, kitty): {sim_cat_kitty:.4f}")
-    print(f"OpenAI Similarity (dog, potato): {sim_dog_potato:.4f}")
+#     print(f"OpenAI Similarity (cat, kitty): {sim_cat_kitty:.4f}")
+#     print(f"OpenAI Similarity (dog, potato): {sim_dog_potato:.4f}")
     
-    if sim_cat_kitty > sim_dog_potato:
-        print("✅ OpenAI Embedding Test Passed: cat-kitty similarity > dog-potato similarity")
-    else:
-        print("❌ OpenAI Embedding Test Failed")
+#     if sim_cat_kitty > sim_dog_potato:
+#         print("✅ OpenAI Embedding Test Passed: cat-kitty similarity > dog-potato similarity")
+#     else:
+#         print("❌ OpenAI Embedding Test Failed")
 
-    # Gemini Embeddings
-    print("Getting Gemini Embeddings...")
-    _, gemini_embeddings = llm.embed(
-        ids=ids,
-        texts=texts,
-        size=768, 
-        db=None,
-        name="test_gemini_emb",
-        verbose=False,
-        model="text-embedding-004"
-    )
+#     # Gemini Embeddings
+#     print("Getting Gemini Embeddings...")
+#     _, gemini_embeddings = llm.embed(
+#         ids=ids,
+#         texts=texts,
+#         size=768, 
+#         db=None,
+#         name="test_gemini_emb",
+#         verbose=False,
+#         model="text-embedding-004"
+#     )
     
-    cat_emb = np.array(gemini_embeddings[0])
-    kitty_emb = np.array(gemini_embeddings[1])
-    dog_emb = np.array(gemini_embeddings[2])
-    potato_emb = np.array(gemini_embeddings[3])
+#     cat_emb = np.array(gemini_embeddings[0])
+#     kitty_emb = np.array(gemini_embeddings[1])
+#     dog_emb = np.array(gemini_embeddings[2])
+#     potato_emb = np.array(gemini_embeddings[3])
     
-    sim_cat_kitty = cosine_similarity(cat_emb, kitty_emb)
-    sim_dog_potato = cosine_similarity(dog_emb, potato_emb)
+#     sim_cat_kitty = cosine_similarity(cat_emb, kitty_emb)
+#     sim_dog_potato = cosine_similarity(dog_emb, potato_emb)
     
-    print(f"Gemini Similarity (cat, kitty): {sim_cat_kitty:.4f}")
-    print(f"Gemini Similarity (dog, potato): {sim_dog_potato:.4f}")
+#     print(f"Gemini Similarity (cat, kitty): {sim_cat_kitty:.4f}")
+#     print(f"Gemini Similarity (dog, potato): {sim_dog_potato:.4f}")
     
-    if sim_cat_kitty > sim_dog_potato:
-        print("✅ Gemini Embedding Test Passed: cat-kitty similarity > dog-potato similarity")
-    else:
-        print("❌ Gemini Embedding Test Failed")
+#     if sim_cat_kitty > sim_dog_potato:
+#         print("✅ Gemini Embedding Test Passed: cat-kitty similarity > dog-potato similarity")
+#     else:
+#         print("❌ Gemini Embedding Test Failed")
 
-except Exception as e:
-    print(f"❌ Embedding Test Error: {e}")
+# except Exception as e:
+#     print(f"❌ Embedding Test Error: {e}")

@@ -136,13 +136,20 @@ class GeminiInterface(LLMInterface):
 
         last_error = None
 
+        # Map unified reasoning levels to Gemini thinking levels
+        # Gemini supports: "minimal" (Flash only), "low", "medium", "high" (default)
+        thinking_config = None
+        if reasoning and reasoning in ["minimal", "low", "medium", "high"]:
+            thinking_config = genai.types.ThinkingConfig(thinking_level=reasoning)
+
         while attempt < max_retries:
             try:
                 if web_search:
                     # Step 1: Search
                     search_config = genai.types.GenerateContentConfig(
                         tools=gemini_tools,
-                        system_instruction=system_message
+                        system_instruction=system_message,
+                        thinking_config=thinking_config
                     )
 
                     search_response = self.client.models.generate_content(
@@ -158,7 +165,8 @@ class GeminiInterface(LLMInterface):
                         max_output_tokens=max_tokens,
                         response_mime_type="application/json",
                         response_schema=response_format,
-                        system_instruction=system_message
+                        system_instruction=system_message,
+                        thinking_config=thinking_config
                     )
 
                     format_prompt = f"Original Request: {message}\n\nInformation Found: {search_text}\n\nPlease format the information found according to the schema."
@@ -177,7 +185,8 @@ class GeminiInterface(LLMInterface):
                         max_output_tokens=max_tokens,
                         response_mime_type="application/json",
                         response_schema=response_format,
-                        system_instruction=system_message
+                        system_instruction=system_message,
+                        thinking_config=thinking_config
                     )
 
                     response = self.client.models.generate_content(

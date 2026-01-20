@@ -107,6 +107,27 @@ class ClaudeInterface(LLMInterface):
 
         last_error = None
 
+        # Determine if model is Opus 4.5 (supports effort parameter)
+        is_opus_45 = "claude-opus-4-5" in model or "opus-4-5" in model
+
+        # Map unified reasoning levels to Claude
+        # For Opus 4.5: use effort parameter (beta API)
+        # For other models: use extended thinking with budget_tokens
+        effort_mapping = {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high"
+        }
+
+        # Token budgets for extended thinking (non-Opus models)
+        thinking_budget_mapping = {
+            "minimal": 1024,
+            "low": 4096,
+            "medium": 16384,
+            "high": 65536
+        }
+
         while attempt < max_retries:
             try:
                 kwargs = {
@@ -122,7 +143,26 @@ class ClaudeInterface(LLMInterface):
                     if tool_choice_param:
                         kwargs["tool_choice"] = tool_choice_param
 
-                response = self.client.messages.create(**kwargs)
+                # Add reasoning/thinking based on model type
+                if reasoning and reasoning in effort_mapping:
+                    if is_opus_45:
+                        # Opus 4.5: use effort parameter (beta API)
+                        kwargs["betas"] = ["effort-2025-11-24"]
+                        kwargs["output_config"] = {"effort": effort_mapping[reasoning]}
+                        response = self.client.beta.messages.create(**kwargs)
+                    else:
+                        # Other models: use extended thinking with budget_tokens
+                        budget = thinking_budget_mapping[reasoning]
+                        kwargs["thinking"] = {
+                            "type": "enabled",
+                            "budget_tokens": budget
+                        }
+                        # Ensure max_tokens can accommodate thinking + response
+                        if kwargs["max_tokens"] < budget + 1024:
+                            kwargs["max_tokens"] = budget + 4096
+                        response = self.client.messages.create(**kwargs)
+                else:
+                    response = self.client.messages.create(**kwargs)
 
                 # Parse response
                 # If structured output was requested (response_format is set), look for that tool use

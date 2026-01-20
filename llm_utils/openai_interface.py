@@ -136,6 +136,20 @@ class OpenAIInterface(LLMInterface):
         else:
             tools = []
 
+        # Map unified reasoning levels to OpenAI format
+        # OpenAI expects: reasoning={"effort": "low"|"medium"|"high"}
+        # "minimal" maps to "low" since OpenAI doesn't have "minimal"
+        reasoning_param = None
+        if reasoning:
+            effort_mapping = {
+                "minimal": "low",
+                "low": "low",
+                "medium": "medium",
+                "high": "high"
+            }
+            if reasoning in effort_mapping:
+                reasoning_param = {"effort": effort_mapping[reasoning]}
+
         while attempt < max_retries:
             try:
                 response = self.client.responses.create(
@@ -147,7 +161,7 @@ class OpenAIInterface(LLMInterface):
                     tool_choice=tool_choice,
                     instructions=system_message,
                     text={"format": response_format, "verbosity": verbosity},
-                    reasoning=reasoning
+                    reasoning=reasoning_param
                 )
 
                 if (isinstance(response_format, str) and "json" in response_format) or (isinstance(response_format, dict) and response_format.get("type") == "json_schema"):
