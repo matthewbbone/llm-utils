@@ -19,7 +19,7 @@ class LLMInterface(ABC):
         pass
 
     def _get_default_batch_size(self, num_texts):
-        return 100
+        return 10_000
 
     def _concurrent_embedding_call(
         self, 
@@ -51,7 +51,7 @@ class LLMInterface(ABC):
         ):
             
             embeddings = []
-            n_minibatches = min(os.cpu_count(), len(batch))
+            n_minibatches = min(os.cpu_count()*10, len(batch))
             if n_minibatches < 1: n_minibatches = 1
             
             minibatches = np.array_split(np.array(batch), n_minibatches)

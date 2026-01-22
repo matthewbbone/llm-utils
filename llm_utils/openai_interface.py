@@ -97,7 +97,7 @@ class OpenAIInterface(LLMInterface):
         texts, 
         size, 
         db,
-        name,
+        batch_size=None,
         verbose=True,
         model=None
     ):
@@ -108,6 +108,7 @@ class OpenAIInterface(LLMInterface):
             model, 
             size,
             db,
+            batch_size=batch_size,
             verbose=verbose
         )
         return output_texts, output_embeddings
