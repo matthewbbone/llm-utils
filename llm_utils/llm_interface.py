@@ -56,6 +56,8 @@ class LLMInterface(ABC):
             
             minibatches = np.array_split(np.array(batch), n_minibatches)
             minibatches = [minibatch.tolist() for minibatch in minibatches]
+            id_minibatches = np.array_split(np.array(id_batches[i]), n_minibatches)
+            id_minibatches = [minibatch.tolist() for minibatch in id_minibatches]
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 
@@ -65,17 +67,17 @@ class LLMInterface(ABC):
                     size
                 ), minibatches))
                 
+            if not db is None:
+                for minibatch, id_minibatch, minibatch_embeddings in zip(minibatches, id_minibatches, results):
+                    db.add(
+                        documents = minibatch,
+                        ids = id_minibatch,
+                        embeddings = minibatch_embeddings
+                    )
+            else:
                 for result in results:
                     if result:
                         embeddings += result
-            
-            if not db is None:
-                db.add(
-                    documents = text_batches[i],
-                    ids = id_batches[i],
-                    embeddings = embeddings
-                )
-            else:
                 output_texts += text_batches[i]
                 output_embeddings += embeddings
                 
